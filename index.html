@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRIMAT V2 — Para Mıknatısı Terminal</title>
+<meta name="description" content="PRIMAT V2 - Gerçek piyasa, gerçek whale, gerçek CVD, liquidation hunter ve arbitrage scanner. Simülasyon yok.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="logo">P2</div>
+    <div>
+      <h1>PRIMAT V2 <span style="color:var(--accent);font-weight:900">• PARA MIKNATISI</span></h1>
+      <p>Gerçek piyasa • Gerçek para • Gerçek av — Simülasyon yok</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill" id="stBinance"><i class="dot"></i><span>binance …</span></div>
+    <div class="status-pill" id="stBybit"><i class="dot"></i><span>bybit …</span></div>
+    <div class="status-pill" id="stOkx"><i class="dot"></i><span>okx …</span></div>
+    <div class="profit-counter fomo" id="profitCounter">⚡ <b>0.00% FLOW</b> <small style="font-weight:600;opacity:0.8">CANLI</small></div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Controls -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-body row" style="padding:10px 14px">
+      <div class="row">
+        <label class="muted" style="font-size:11px;letter-spacing:0.7px;text-transform:uppercase">Parite</label>
+        <select id="selSymbol">
+          <option value="BTCUSDT" selected>BTCUSDT</option>
+          <option value="ETHUSDT">ETHUSDT</option>
+          <option value="SOLUSDT">SOLUSDT</option>
+          <option value="AVAXUSDT">AVAXUSDT</option>
+          <option value="BNBUSDT">BNBUSDT</option>
+          <option value="XRPUSDT">XRPUSDT</option>
+          <option value="DOGEUSDT">DOGEUSDT</option>
+        </select>
+        <input id="customSymbol" placeholder="örn: PEPEUSDT" style="width:140px" />
+        <button class="btn btn-ghost" onclick="document.getElementById('customSymbol').value && switchSymbol(document.getElementById('customSymbol').value)">Git</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="controls">
+        <button id="btnStart" class="btn btn-primary">▶️ Başlat</button>
+        <button id="btnStop" class="btn" disabled>⏸️ Durdur</button>
+        <button id="btnSound" class="btn btn-ghost">🔈 Ses Kapalı</button>
+        <span class="muted mono" style="font-size:10px" id="busStats">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top grid: Chart + Right panel -->
+  <div class="grid">
+    <!-- LEFT: Price + Chart + CVD -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-head">
+          <h3>💹 <span id="chartSymbol">BTCUSDT</span> — Canlı Fiyat</h3>
+          <small id="wsStats" class="mono muted">-</small>
+        </div>
+        <div class="card-body">
+          <div class="price-row">
+            <div class="price" id="livePrice">$—</div>
+            <div id="chg24" class="chg">—</div>
+            <div class="muted mono" style="font-size:12px">24h High <b id="high24" style="color:var(--text)">—</b> • Low <b id="low24" style="color:var(--text)">—</b> • Vol <b id="vol24" style="color:var(--text)">—</b></div>
+          </div>
+          <div class="mono muted" style="font-size:11px;margin-top:6px"><span id="lastTrade">Bekleniyor…</span> • <span id="priceTime">—</span> • <span id="priceEx" class="badge badge-shark">—</span> • <span id="symLabel" class="badge badge-long">BTCUSDT</span></div>
+
+          <div class="chart-wrap" style="margin-top:12px">
+            <canvas id="priceCanvas" style="width:100%;height:100%"></canvas>
+            <div style="position:absolute;left:10px;top:10px;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);border:1px solid var(--border);padding:6px 8px;border-radius:8px;font-size:11px" class="mono">LIVE TRADES • <span id="priceTime2" class="muted">tick-by-tick</span></div>
+          </div>
+
+          <div class="kpi" style="margin-top:12px">
+            <div class="box"><span>POC (Kontrol Noktası)</span><b id="pocVal" class="mono">—</b><span id="vpBins" class="muted">-</span></div>
+            <div class="box"><span>VAH / VAL</span><b class="mono"><span id="vahVal">—</span> / <span id="valVal">—</span></b><span id="vpHint" class="muted">—</span></div>
+            <div class="box"><span>Whale Tespit</span><b id="whaleCount" style="color:var(--danger)">0</b><span>Shark + Whale (14 son)</span></div>
+          </div>
+
+          <div class="volume-bars" id="vpBars"></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:6px"><span>BID (Alıcı)</span><span>Volume Profile — POC outline beyaz</span><span>ASK (Satıcı)</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>📊 CVD — Cumulative Volume Delta</h3>
+          <small><span id="cvdAlert" class="badge badge-shark">No divergence</span></small>
+        </div>
+        <div class="card-body">
+          <div class="row" style="justify-content:space-between">
+            <div><div class="muted" style="font-size:10px;letter-spacing:0.6px;text-transform:uppercase">CVD</div><b id="cvdVal" class="mono" style="font-size:18px">—</b></div>
+            <div><div class="muted" style="font-size:10px;letter-spacing:0.6px;text-transform:uppercase">Delta</div><b id="cvdDelta" class="mono">—</b></div>
+            <div><div class="muted" style="font-size:10px;letter-spacing:0.6px;text-transform:uppercase">Imbalance</div><b id="cvdImb" class="mono">—</b></div>
+            <div><div class="muted" style="font-size:10px;letter-spacing:0.6px;text-transform:uppercase">Trend</div><b id="cvdTrend" class="badge badge-shark">—</b></div>
+          </div>
+          <div class="cvd-wrap chart-wrap" style="height:180px;margin-top:12px">
+            <canvas id="cvdCanvas" style="width:100%;height:100%"></canvas>
+            <div style="position:absolute;left:10px;top:10px;font-size:11px;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:8px;border:1px solid var(--border)"><span style="color:var(--accent)">— CVD</span> <span style="color:var(--accent2)">— Fiyat</span></div>
+          </div>
+          <div class="muted" style="font-size:11px;margin-top:8px;line-height:1.5">CVD fiyatı teyit etmiyorsa divergence vardır: Fiyat tepe yaparken CVD düşüyorsa <b>bearish divergence</b> (gizli satış), tam tersi <b>bullish</b>. Tick-by-tick hesaplanır.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Whale, Flow, Confluence, Liq, Arb -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <div class="card">
+        <div class="card-head">
+          <h3>🐋 Whale Tracker</h3>
+          <small class="muted">>$100K Whale • $10K Shark • zScore>3.5</small>
+        </div>
+        <div class="card-body">
+          <div class="flow-bar" style="margin-bottom:8px"><i id="flowBuy" class="flow-buy" style="width:50%"></i><i id="flowSell" class="flow-sell" style="width:50%"></i></div>
+          <div class="row" style="justify-content:space-between;font-size:11px">
+            <span id="flowBuyLabel" class="badge badge-long">ALIŞ 50%</span>
+            <span class="mono"><span id="flowDelta">—</span> • <b id="flowImb">0%</b></span>
+            <span id="flowSellLabel" class="badge badge-short">SATIŞ 50%</span>
+          </div>
+          <div class="muted mono" style="font-size:10px;margin-top:6px">Aggressive buyer vs seller — Order flow dengesizliği sinyaldir</div>
+          <div style="max-height:320px;overflow:auto;margin-top:10px;border:1px solid var(--border);border-radius:10px">
+            <table class="table">
+              <thead><tr><th>Tip</th><th>Fiyat</th><th>Hacim</th><th>Yön</th><th>güven</th><th>saat</th></tr></thead>
+              <tbody id="whaleBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>📈 Multi-TF Confluence</h3>
+          <small id="confAction" class="badge badge-shark">Bekle</small>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <b id="confScore" style="font-size:36px;line-height:1">—</b><span style="font-size:14px;color:var(--muted)">/100</span>
+            <span id="confSignal" class="badge badge-shark">NEUTRAL</span>
+            <span class="spacer"></span>
+            <span class="muted mono" style="font-size:10px" id="confSummary">—</span>
+          </div>
+          <div class="meter" style="margin-top:10px"><i id="confMeter" style="width:50%"></i></div>
+          <div class="meter-label"><span>SELL</span><span>NEUTRAL</span><span>BUY</span></div>
+          <div style="max-height:240px;overflow:auto;margin-top:10px;border:1px solid var(--border);border-radius:10px">
+            <table class="table">
+              <thead><tr><th>TF</th><th>Fiyat</th><th>EMA</th><th>RSI</th><th>MACD</th><th>Vol</th></tr></thead>
+              <tbody id="confBody"></tbody>
+            </table>
+          </div>
+          <div class="muted" style="font-size:10px;margin-top:6px">Skor: EMA 30% + RSI 25% + MACD 25% + Volume 20%. 4h %30, 1h %25, 15m %20, 5m %15, 1m %10 ağırlık.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>💥 Liquidation Hunter</h3>
+          <small><span id="liqAlertLabel" class="badge badge-shark">LOW</span> • Risk <b id="liqRisk" class="mono">—</b> • Pools <span id="liqClusters">—</span></small>
+        </div>
+        <div class="card-body">
+          <div class="row mono" style="font-size:12px"><span>Fiyat <b id="liqPrice">—</b></span><span class="spacer"></span><span class="muted">Sweep hedefi ilk cluster</span></div>
+          <div class="meter" style="margin-top:8px"><i id="liqRiskMeter" style="width:0%;background:linear-gradient(90deg,var(--accent),var(--warn),var(--danger))"></i></div>
+          <div id="heatmap" class="heatmap" style="margin-top:10px"></div>
+          <div class="muted" style="font-size:11px;margin-top:8px">Likidasyon havuzları: Fiyata yakın yüksek hacimli emir seviyeleri. %CRITICAL <5mm mesafe.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>💱 Arbitrage Scanner</h3>
+          <small><span id="arbCount">0</span> fırsat • En iyi <b id="arbBest" style="color:var(--accent)">—</b></small>
+        </div>
+        <div class="card-body">
+          <div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:10px">
+            <table class="table">
+              <thead><tr><th>Parite</th><th>Borsa</th><th>Fiyat</th><th>Net %</th><th>Likidite</th></tr></thead>
+              <tbody id="arbBody"></tbody>
+            </table>
+          </div>
+          <div id="triBody" style="margin-top:8px"></div>
+          <div class="muted" style="font-size:10px;margin-top:6px">Fee sonrası net kâr >0.15% filtreli. Gecikme <100ms hedef — gerçek ticker karşılaştırması.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Trading Plan -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-head">
+      <h3>🎯 Smart Trading Plan Generator</h3>
+      <small class="muted">ATR 1.5x SL • 1:2 ve 1:3 TP • Volatility bazlı kaldıraç</small>
+    </div>
+    <div class="card-body">
+      <div class="row" style="gap:12px;align-items:flex-end">
+        <div><label class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:0.6px">Hesap Bakiyesi (USDT)</label><br><input id="riskBalance" type="number" value="1000" style="width:140px"></div>
+        <div><label class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:0.6px">Risk / İşlem (%)</label><br><input id="riskPct" type="number" value="2" min="0.1" max="10" step="0.5" style="width:100px"></div>
+        <div><label class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:0.6px">Yön</label><br>
+          <select id="planDirSelect" style="width:140px">
+            <option value="AUTO">AUTO (Confluence)</option>
+            <option value="LONG">LONG</option>
+            <option value="SHORT">SHORT</option>
+          </select>
+        </div>
+        <div class="spacer"></div>
+        <div id="riskLabel" class="badge badge-shark">%2 risk • $1000</div>
+        <button id="btnGenPlan" class="btn btn-primary">⚡ Plan Oluştur</button>
+      </div>
+
+      <div id="planBox" class="hidden" style="margin-top:14px">
+        <div class="row" style="gap:8px;margin-bottom:10px">
+          <span id="planSymbol" class="badge badge-shark">BTCUSDT</span>
+          <span id="planDir" class="badge badge-long">LONG</span>
+          <span class="muted mono" style="font-size:11px" id="planInvalid">—</span>
+          <span class="spacer"></span>
+          <span class="muted" style="font-size:11px">R:R <b id="planRR" style="color:var(--accent)">—</b> • Kaldıraç <b id="planLev" style="color:var(--warn)">—</b></span>
+        </div>
+        <div class="plan-grid">
+          <div class="plan-box entry"><label>Entry / Giriş</label><b id="planEntry" class="mono">—</b><small class="muted mono">Zone <span id="planZone">—</span></small></div>
+          <div class="plan-box sl"><label>Stop Loss (ATR 1.5x)</label><b id="planSL" class="mono">—</b><small class="muted">İnvalidasyon seviyesi</small></div>
+          <div class="plan-box tp"><label>Take Profit 1 (1:2)</label><b id="planTP1" class="mono">—</b><small class="muted">İlk kâr al</small></div>
+          <div class="plan-box tp"><label>Take Profit 2 (1:3)</label><b id="planTP2" class="mono">—</b><small class="muted">Swing hedef</small></div>
+          <div class="plan-box"><label>Take Profit 3 (1:5 — Runner)</label><b id="planTP3" class="mono">—</b></div>
+          <div class="plan-box"><label>Pozisyon</label><b><span id="planSize">—</span> • Margin <span id="planMargin">—</span></b><small class="muted mono">ATR % ve volatilite bazlı</small></div>
+        </div>
+        <div style="margin-top:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px">
+          <div style="font-size:12px;font-weight:800;margin-bottom:6px">📝 Notlar</div>
+          <ul id="planNotes" style="margin:0;padding-left:16px;font-size:12px;line-height:1.6;color:var(--muted)"></ul>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size:11px;margin-top:10px">Risk yönetimi profesyonel: Pozisyon = (Bakiye × Risk%) / |Entry - SL| . Kaldıraç volatiliteye göre 3x-20x otomatik. Asla %2'den fazla riske etme.</div>
+    </div>
+  </div>
+
+  <!-- Footer warning + deployment -->
+  <div class="footer">
+    <b>⚠️ Sorumluluk Reddi:</b> Bu terminal yatırım tavsiyesi değildir. Kripto kaldıraçlı işlemler yüksek risk içerir, tüm sermayeni kaybedebilirsin. Gösterilen sinyaller algoritmiktir, garanti değildir. Gerçek işlem açmadan önce her planı demoda test et. <br>
+    <b>🔒 Güvenlik:</b> API anahtarlarını asla frontend'e koyma. Gerçek emir iletimi için Vercel Edge Functions + server-side imzalama kullan (aşağıdaki <code>api/</code> örneğine bak). Bu demo <b>sadece izleme</b> yapar, emir göndermez.
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="card-head"><h3>🚀 Deployment</h3><small class="muted">Vercel + GitHub</small></div>
+    <div class="card-body mono" style="font-size:12px;line-height:1.7">
+      <b>1) GitHub’a push (token’ı kodda tutma):</b><br>
+      <code>git init && git add . && git commit -m "PRIMAT V2 - Para Mıknatısı"</code><br>
+      <code>gh repo create primat-v2 --private --source=. --push</code> <span class="muted">// veya GitHub web'den private repo oluşturup remote ekle</span><br><br>
+      <b>2) Vercel:</b><br>
+      <code>vercel --prod</code> <span class="muted">// CLI seni login'e yönlendirir, token'ı .env'de tut</span><br>
+      <code>vercel env add BINANCE_API_KEY</code> <span class="muted">// server-side only</span><br><br>
+      <b>3) Env:</b> <code>.env.example</code>'a bak. Asla <code>ghp_</code> veya <code>vcp_</code> token'ını git’e commit’leme. Leak olursa <b>hemen revoke et</b> (GitHub → Settings → Developer settings → Tokens → Revoke).
+    </div>
+  </div>
+
+  <div class="muted" style="text-align:center;padding:18px;font-size:11px;letter-spacing:0.6px">PRIMAT V2 • Built with 🧠 not 💪 • Her tick'te para kokusu • © 2026</div>
+
+</div>
+
+<div id="toastStack" class="toast-stack"></div>
+
+<!-- Scripts - order matters -->
+<script src="js/core/EventBus.js"></script>
+<script src="js/core/ExchangeWS.js"></script>
+<script src="js/engines/WhaleTracker.js"></script>
+<script src="js/engines/CVDEngine.js"></script>
+<script src="js/engines/VolumeProfile.js"></script>
+<script src="js/engines/ConfluenceEngine.js"></script>
+<script src="js/engines/LiquidationHunter.js"></script>
+<script src="js/engines/ArbitrageScanner.js"></script>
+<script src="js/engines/TradingPlan.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
